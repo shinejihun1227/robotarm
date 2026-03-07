@@ -1,3 +1,5 @@
+# id 0 과 id 1 간의 중심간 거리를 잴 수 있음 : 둘 다 수평으로 뒀을 때 기준. 두 거리 간에 노란색 선 표시가 됨 cv.
+
 import cv2
 import cv2.aruco as aruco
 import numpy as np

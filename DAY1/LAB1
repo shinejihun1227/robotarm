@@ -1,1 +1,110 @@
 
+from machine import I2C, Pin
+from time import sleep
+from pca9685 import PCA9685
+
+
+# =========================
+# 기본 설정
+# =========================
+I2C_SCL = 22
+I2C_SDA = 21
+PCA_ADDR = 0x40
+
+SERVO_CH = 0   # PCA9685의 0번 채널에 서보모터 연결
+
+
+# =========================
+# I2C / PCA9685 초기화
+# =========================
+i2c = I2C(
+    0,
+    scl=Pin(I2C_SCL),
+    sda=Pin(I2C_SDA),
+    freq=400_000
+)
+
+pca = PCA9685(i2c, PCA_ADDR)
+
+
+# =========================
+# 각도 → PWM 펄스폭 변환 함수
+# =========================
+def angle_to_us(angle):
+    """
+    서보 각도 0~180도를 PWM 펄스폭 us로 변환
+    기본값:
+    0도   ≈ 500us
+    90도  ≈ 1500us
+    180도 ≈ 2500us
+    """
+
+    if angle < 0:
+        angle = 0
+
+    if angle > 180:
+        angle = 180
+
+    min_us = 500
+    max_us = 2500
+
+    us = min_us + (max_us - min_us) * angle / 180
+
+    return int(us)
+
+
+# =========================
+# 서보 이동 함수
+# =========================
+def move_servo(angle):
+    """
+    SERVO_CH에 연결된 서보모터를 원하는 각도로 이동
+    """
+
+    us = angle_to_us(angle)
+
+    pca.set_us(SERVO_CH, us)
+
+    print("CH{} -> {}도 / {}us".format(SERVO_CH, angle, us))
+
+
+# =========================
+# 테스트 함수
+# =========================
+def test_servo():
+    """
+    서보모터 1개 기본 테스트
+    90도 -> 60도 -> 120도 -> 90도 순서로 이동
+    """
+
+    print("서보모터 1개 테스트 시작")
+
+    move_servo(90)
+    sleep(1)
+
+    move_servo(60)
+    sleep(1)
+
+    move_servo(120)
+    sleep(1)
+
+    move_servo(90)
+    sleep(1)
+
+    print("서보모터 테스트 완료")
+
+
+def all_off():
+    """
+    PCA9685 전체 PWM 출력 정지
+    """
+    pca.all_off()
+    print("전체 PWM 출력 정지")
+
+
+# =========================
+# 실행부
+# =========================
+print("PCA9685 서보모터 1개 테스트 코드 시작")
+
+test_servo()

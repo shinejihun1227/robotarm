@@ -1,0 +1,199 @@
+# main.py
+from machine import Pin, I2C, ADC
+from time import sleep_ms
+import config
+from pca9685 import PCA9685
+
+
+# ── 파라미터 ─────────────────────────────────────────────
+MAX_STEP_DEG    = 3    # 정상 제어 중 루프당 최대 이동 각도 (deg)
+RETURN_STEP_DEG = 1    # 홈 복귀 시 루프당 최대 이동 각도 (더 느리게)
+HOME_DEG        = 90   # 중립 각도
+ALIGN_THRESHOLD = 10   # 가변저항이 몇 도 이내면 해당 관절 잠금 해제 (deg)
+
+
+# ── 초기화 ──────────────────────────────────────────────
+i2c = I2C(0, scl=Pin(config.I2C_SCL),
+              sda=Pin(config.I2C_SDA), freq=400_000)
+pca = PCA9685(i2c, config.PCA_ADDR)
+
+# ── 가변저항 ADC ─────────────────────────────────────────
+adcs = []
+for pin_num in config.POT_PINS:
+    adc = ADC(Pin(pin_num))
+    try:
+        adc.atten(ADC.ATTN_11DB)
+    except AttributeError:
+        pass
+    adcs.append(adc)
+
+
+# ── 유틸 함수 ────────────────────────────────────────────
+
+def clamp(val, lo, hi):
+    return max(lo, min(hi, val))
+
+def read_pot(idx):
+    """가변저항 하나를 ADC_SAMPLES 번 읽어서 평균"""
+    total = 0
+    for _ in range(config.ADC_SAMPLES):
+        try:
+            total += adcs[idx].read_u16()
+        except AttributeError:
+            total += adcs[idx].read() << 4
+        sleep_ms(1)
+    return total // config.ADC_SAMPLES
+
+def pot_to_servo_deg(raw, idx):
+    """가변저항 raw 값 → 서보 출력 각도 (0~180)"""
+    cfg  = config.SERVO[idx]
+    lo   = config.POT_MIN[idx]
+    hi   = config.POT_MAX[idx]
+    span = hi - lo if hi != lo else 1
+
+    raw = clamp(raw, lo, hi)
+    deg = (raw - lo) * 180 // span
+
+    if cfg['dir'] == -1:
+        deg = 180 - deg
+
+    deg = deg + cfg['offset']
+    deg = clamp(deg, cfg['min_deg'], cfg['max_deg'])
+    return deg
+
+def deg_to_us(deg, idx):
+    """각도 → 펄스폭(us) 변환"""
+    cfg = config.SERVO[idx]
+    return int(cfg['min_us'] +
+               (cfg['max_us'] - cfg['min_us']) * deg / 180)
+
+def write_servo(idx, deg):
+    """서보 idx 에 deg 각도 출력"""
+    pca.set_us(config.SERVO_CH[idx], deg_to_us(deg, idx))
+
+def return_to_home(current):
+    """모든 서보를 HOME_DEG(90도)로 천천히 복귀"""
+    names = [s['name'] for s in config.SERVO]
+    print("\n[복귀] 모든 관절을 중립(90도)으로 천천히 이동합니다...")
+
+    while True:
+        all_home = True
+        for i in range(6):
+            diff = HOME_DEG - current[i]
+            if abs(diff) < 1:
+                current[i] = HOME_DEG
+                write_servo(i, HOME_DEG)
+                continue
+            all_home = False
+            step = clamp(diff, -RETURN_STEP_DEG, RETURN_STEP_DEG)
+            current[i] += step
+            write_servo(i, current[i])
+
+        if all_home:
+            break
+
+        status = "  ".join(f"{names[i]}:{current[i]:3d}d" for i in range(6))
+        print(f"  {status}")
+        sleep_ms(config.LOOP_MS)
+
+    print("[복귀 완료] 모든 관절이 중립 위치에 도달했습니다.\n")
+
+
+# ── 시작: 서보 전부 90도로 이동 ─────────────────────────
+names = [s['name'] for s in config.SERVO]
+
+print("=" * 52)
+print("  로봇팔 초기화 -- 서보를 중립(90도)으로 이동 중...")
+print("=" * 52)
+
+current = [HOME_DEG] * 6
+for i in range(6):
+    write_servo(i, HOME_DEG)
+sleep_ms(1500)
+
+
+# ── 정렬 대기: 관절별 개별 잠금 해제 ────────────────────
+# unlocked[i] = True  → 해당 관절은 이미 정렬 완료, 제어 중
+# unlocked[i] = False → 아직 가변저항을 중립 근처로 안 맞춤
+unlocked = [False] * 6
+
+print(f"\n[정렬 대기] 각 가변저항을 중립(90+-{ALIGN_THRESHOLD}도) 근처로 맞추세요.")
+print("  맞춰진 관절부터 개별적으로 제어가 시작됩니다.\n")
+
+loop_count = 0
+
+try:
+    while True:
+        raws     = [read_pot(i) for i in range(6)]
+        pot_degs = [pot_to_servo_deg(raws[i], i) for i in range(6)]
+
+        for i in range(6):
+            if not unlocked[i]:
+                # ── 아직 잠긴 관절: 정렬 여부만 확인 ──────
+                if abs(pot_degs[i] - HOME_DEG) <= ALIGN_THRESHOLD:
+                    unlocked[i] = True
+                    current[i]  = pot_degs[i]   # 현재 가변저항값으로 동기화
+                    print(f"  [{names[i]}] 정렬 완료! 제어 시작.")
+                # 잠긴 동안 서보는 90도 고정 (write 불필요, 이미 90도)
+
+            else:
+                # ── 잠금 해제된 관절: 슬루 레이트 제한으로 추종 ──
+                diff = pot_degs[i] - current[i]
+                if abs(diff) >= config.DEADBAND_DEG:
+                    step = clamp(diff, -MAX_STEP_DEG, MAX_STEP_DEG)
+                    current[i] += step
+                    write_servo(i, current[i])
+
+        # ── 상태 출력 ────────────────────────────────────
+        loop_count += 1
+        if loop_count % config.PRINT_EVERY == 0:
+            print("  " + "-" * 46)
+            for i in range(6):
+                if unlocked[i]:
+                    state = f"CTRL  deg={current[i]:3d}"
+                else:
+                    diff = pot_degs[i] - HOME_DEG
+                    sign = "+" if diff >= 0 else ""
+                    state = f"WAIT  pot={pot_degs[i]:3d}d ({sign}{diff:+d}d 필요)"
+                print(f"  {names[i]:10s} {state}")
+            print()
+
+        # 전부 잠금 해제되면 정렬 단계 종료
+        if all(unlocked):
+            print("\n[정렬 완료] 모든 관절 제어 중.\n")
+            break
+
+        sleep_ms(config.LOOP_MS)
+
+
+    # ── 메인 루프 ─────────────────────────────────────────
+    print("=" * 52)
+    print("  전체 제어 시작 -- Stop 버튼으로 종료하세요.")
+    print("=" * 52 + "\n")
+
+    loop_count = 0
+
+    while True:
+        raws     = [read_pot(i) for i in range(6)]
+        pot_degs = [pot_to_servo_deg(raws[i], i) for i in range(6)]
+
+        for i in range(6):
+            diff = pot_degs[i] - current[i]
+            if abs(diff) < config.DEADBAND_DEG:
+                continue
+            step = clamp(diff, -MAX_STEP_DEG, MAX_STEP_DEG)
+            current[i] += step
+            write_servo(i, current[i])
+
+        loop_count += 1
+        if loop_count % config.PRINT_EVERY == 0:
+            for i in range(6):
+                print(f"  {names[i]:10s} raw={raws[i]:5d}  deg={current[i]:3d}")
+            print()
+
+        sleep_ms(config.LOOP_MS)
+
+# ── 종료 ─────────────────────────────────────────────────
+except KeyboardInterrupt:
+    return_to_home(current)
+    print("프로그램을 종료합니다.")

@@ -1,0 +1,125 @@
+from machine import I2C, Pin
+from time import sleep
+from pca9685 import PCA9685
+
+# =========================
+# 기본 설정
+# =========================
+I2C_SCL = 22
+I2C_SDA = 21
+PCA_ADDR = 0x40
+
+# 사용할 서보모터 채널 리스트 (0, 1, 2번 채널)
+SERVO_CHANNELS = [0, 1, 2] 
+
+
+# =========================
+# I2C / PCA9685 초기화
+# =========================
+i2c = I2C(
+    0,
+    scl=Pin(I2C_SCL),
+    sda=Pin(I2C_SDA),
+    freq=400_000
+)
+
+pca = PCA9685(i2c, PCA_ADDR)
+
+
+# =========================
+# 각도 → PWM 펄스폭 변환 함수
+# =========================
+def angle_to_us(angle):
+    """
+    서보 각도 0~180도를 PWM 펄스폭 us로 변환
+    기본값:
+    0도   ≈ 500us
+    90도  ≈ 1500us
+    180도 ≈ 2500us
+    """
+    if angle < 0:
+        angle = 0
+    if angle > 180:
+        angle = 180
+
+    min_us = 500
+    max_us = 2500
+    us = min_us + (max_us - min_us) * angle / 180
+
+    return int(us)
+
+
+# =========================
+# 서보 이동 함수 (채널 지정)
+# =========================
+def move_servo(channel, angle):
+    """
+    원하는 채널(channel)의 서보모터를 원하는 각도(angle)로 이동
+    """
+    us = angle_to_us(angle)
+    pca.set_us(channel, us)
+    print("CH{} -> {}도 / {}us".format(channel, angle, us))
+
+
+# =========================
+# 3개 서보 동시 이동 제어 (추가됨)
+# =========================
+def move_all_servos(angle0, angle1, angle2):
+    """
+    채널 0, 1, 2 서보모터를 각각 지정한 각도로 동시에 이동
+    """
+    move_servo(0, angle0)
+    move_servo(1, angle1)
+    move_servo(2, angle2)
+    print("-" * 30)
+
+
+# =========================
+# 테스트 함수
+# =========================
+def test_servo():
+    """
+    서보모터 3개 동시 테스트
+    """
+    print("서보모터 3개 테스트 시작\n")
+
+    print("[단계 1] 모두 90도로 정렬 (중립 위치)")
+    move_all_servos(90, 90, 90)
+    sleep(1)
+
+    print("[단계 2] 모두 60도로 이동")
+    move_all_servos(60, 60, 60)
+    sleep(1)
+
+    print("[단계 3] 서로 다른 각도로 이동 (로봇 팔 꺾임 시뮬레이션)")
+    move_all_servos(120, 90, 60)
+    sleep(1)
+
+    print("[단계 4] 다시 모두 90도로 복귀")
+    move_all_servos(90, 90, 90)
+    sleep(1)
+
+    print("서보모터 테스트 완료\n")
+
+
+def all_off():
+    """
+    PCA9685 전체 PWM 출력 정지 (모터 힘 빼기)
+    """
+    pca.all_off()
+    print("전체 PWM 출력 정지 (모터 토크 해제)")
+
+
+# =========================
+# 실행부
+# =========================
+print("PCA9685 서보모터 3채널(0, 1, 2) 테스트 코드 시작")
+
+try:
+    test_servo()
+except KeyboardInterrupt:
+    # 실행 중 '정지' 버튼을 눌렀을 때 안전하게 끄기 위함
+    print("사용자에 의해 중단됨")
+finally:
+    # 테스트가 끝나면 모터가 과열되지 않게 힘을 풀어줌
+    all_off()

@@ -18,12 +18,16 @@ def fk(base_deg, shoulder_deg, elbow_deg):
 
     각도 기준:
       base     : 0 = 정면 / 양수 = 왼쪽 / 음수 = 오른쪽
-      shoulder : 0 = 수평 / 양수 = 위
-      elbow    : 0 = 일자 / 음수 = 위로 접힘
+      shoulder : 0 = 어깨 링크(a2)가 수직 / 양수 = 앞으로 내려감
+      elbow    : 0 = 팔꿈치 이후 링크(a3)가 수평 / 음수 = 더 위로 접힘
     """
     b = math.radians(base_deg)
-    s = math.radians(shoulder_deg)
-    e = math.radians(elbow_deg)
+    # 사용자 기준 shoulder=0 은 a2가 수직인 자세다.
+    # 기존 수평 기준 수식에 맞추기 위해 내부 계산에서는 90도를 빼 준다.
+    s = math.radians(90.0 - shoulder_deg)
+    # 사용자 기준 elbow=0 은 a3가 수평인 자세다.
+    # 내부 계산에서는 shoulder 링크 기준 상대각이 필요하므로 90도를 뺀다.
+    e = math.radians(elbow_deg - 90.0)
 
     # 측면 평면에서 수평 거리, 수직 높이 계산
     r = (L['a2'] * math.cos(s)
@@ -47,6 +51,14 @@ def fk(base_deg, shoulder_deg, elbow_deg):
 def ik(x, y, z, elbow_up=True):
     """
     목표 위치 (x, y, z) cm → 서보 각도 3개
+
+    shoulder 기준:
+      0 = 어깨 링크(a2)가 수직
+      양수 = 팔이 앞으로 내려감
+
+    elbow 기준:
+      0 = 팔꿈치 이후 링크(a3)가 수평
+      음수 = 더 위로 접힘
 
     elbow_up=True  : 팔꿈치가 위로 올라가는 자세 (기본)
     elbow_up=False : 팔꿈치가 아래로 내려가는 자세
@@ -86,9 +98,9 @@ def ik(x, y, z, elbow_up=True):
              / (2 * L['a2'] * L['a3']))
     cos_e = max(-1.0, min(1.0, cos_e))   # 수치 오차 방지
 
-    elbow = math.degrees(math.acos(cos_e))
+    elbow_math = math.degrees(math.acos(cos_e))
     if elbow_up:
-        elbow = -elbow    # 음수 = 팔꿈치 위로
+        elbow_math = -elbow_math    # 음수 = 팔꿈치 위로
 
     # ── 5단계: 어깨 각도 ──────────────────────────────
     alpha = math.atan2(h, r)
@@ -98,9 +110,15 @@ def ik(x, y, z, elbow_up=True):
     beta  = math.acos(cos_b)
 
     if elbow_up:
-        shoulder = math.degrees(alpha + beta)
+        shoulder_math = math.degrees(alpha + beta)
     else:
-        shoulder = math.degrees(alpha - beta)
+        shoulder_math = math.degrees(alpha - beta)
+
+    # 내부 계산은 shoulder=0 이 수평 기준이므로,
+    # 사용자 기준인 shoulder=0 = 수직 자세로 다시 변환한다.
+    shoulder = 90.0 - shoulder_math
+    # 내부 계산의 elbow=90 이 a3 수평에 해당하므로 사용자 기준으로 되돌린다.
+    elbow = elbow_math + 90.0
 
     # ── 6단계: FK로 검증 ───────────────────────────────
     fx, fy, fz = fk(base, shoulder, elbow)
@@ -123,3 +141,4 @@ def is_reachable(x, y, z):
     dist = math.sqrt(r*r + h*h)
     return (abs(L['a2'] - L['a3']) < dist < L['a2'] + L['a3']
             and r >= 0)
+

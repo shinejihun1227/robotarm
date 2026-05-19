@@ -104,8 +104,8 @@ home()
 sleep_ms(2000)   # 홈 도착 후 2초 대기
 
 print('\n테스트 1: 후진 이동')
-#move_to(15, -10, 18)
-home()
+move_to(15, 0, 24)
+#home()
 sleep_ms(2000)
 
 print('\n홈 복귀')

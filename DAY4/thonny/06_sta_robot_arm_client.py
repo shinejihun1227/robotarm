@@ -1,18 +1,5 @@
 # 06_sta_robot_arm_client.py
 # ESP32 STA Robot Arm Client - Central Server Register Version
-#
-# 기능:
-# 1) Status 버튼 출력 패널 보강
-# 2) 00 Raw Neutral: offset 미적용
-# 3) 01 Offset Calibration: 각 관절 absolute angle 제어 + recommended offset 출력
-# 4) 01 Angle Test:
-#    - Jog: -10, -5, 0, +5, +10
-#    - Scan Up/Down: 서버 내부에서 부드럽게 연속 이동
-#    - Stop/Record: 현재 abs 각도 기준 min_deg/max_deg 추천값 출력 후 0으로 복귀
-# 5) 03/04 XYZ:
-#    - Linear / Smooth 버튼
-#    - Live XYZ 체크박스 추가
-# 6) 일반 이동은 config.py의 min_deg/max_deg를 넘으면 이동 거부
 
 import network
 import socket

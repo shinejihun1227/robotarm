@@ -708,35 +708,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <title>MJYeom Robot Arm</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,sans-serif;background:#111827;color:#eee;padding:14px}
-h1{font-size:1.26rem;margin-bottom:12px;color:#7dd3fc;text-align:center}
-.card{background:#1f2937;border-radius:14px;padding:14px;margin:0 auto 12px;max-width:560px}
-.card h2{font-size:.92rem;background:#374151;border-radius:8px;padding:7px 9px;margin-bottom:10px;color:#fff}
-label{display:flex;justify-content:space-between;font-size:.82rem;color:#cbd5e1;margin:8px 0 3px}
-label span{color:#7dd3fc;font-weight:bold}
-input[type=range],select{width:100%;margin-bottom:7px}
-select,input{background:#111827;color:#fff;border:1px solid #4b5563;border-radius:8px;padding:8px}
-.row{display:flex;gap:7px;margin-top:7px}
-button{flex:1;padding:10px;border:0;border-radius:9px;font-weight:bold;color:#fff}
-button:active{opacity:.7}
-.b1{background:#0ea5e9}.b2{background:#22c55e}.b3{background:#f97316}
-.b4{background:#ef4444}.b5{background:#8b5cf6}.b6{background:#64748b}
-#st,#statbox{max-width:560px;margin:0 auto 10px;background:#020617;color:#93c5fd;
-    border-radius:10px;padding:11px;min-height:42px;font-size:.82rem;white-space:pre-wrap}
-#statbox{color:#e5e7eb;font-family:monospace;font-size:.75rem;display:none}
-.localbox{background:#020617;color:#e5e7eb;border-radius:10px;padding:10px;
-    min-height:38px;font-family:monospace;font-size:.75rem;white-space:pre-wrap;margin-top:8px}
-.localbox.empty{color:#64748b}
-.small{font-size:.75rem;color:#94a3b8;line-height:1.35;margin-top:8px}
-.jointBox{border:1px solid #334155;border-radius:10px;padding:9px;margin-bottom:8px}
-.result{font-size:.78rem;color:#fbbf24;margin-top:3px;white-space:pre-wrap}
-.info{font-size:.75rem;color:#94a3b8;line-height:1.35}
-.checkrow{display:flex;align-items:center;gap:8px;margin:8px 0;color:#cbd5e1;font-size:.85rem}
-.checkrow input{width:auto}
+:root{--mint:#dff5f3;--mint2:#c7ebe8;--teal:#23c7c9;--tealDark:#11999e;--navy:#172033;--blue:#2563eb;--green:#18a66a;--orange:#ff9f1c;--red:#ff4d5e;--violet:#6d5dfc;--slate:#607080;--ink:#16181d;--sub:#606b72;--line:#d6e8e7;--paper:#fff;--soft:#f7fbfb}
+body{font-family:Arial,'Noto Sans KR',sans-serif;background:linear-gradient(180deg,var(--mint),#eefaf9);color:var(--ink);padding:18px;min-height:100vh}
+body:before{content:'C';position:fixed;left:18px;top:14px;width:36px;height:36px;border-radius:50%;background:#fff;color:var(--tealDark);font-weight:900;font-size:25px;line-height:36px;text-align:center;box-shadow:0 4px 12px rgba(17,153,158,.16);z-index:0}
+.pageTitle{max-width:620px;margin:10px auto 16px;background:var(--paper);border:10px solid var(--mint2);border-radius:10px;padding:24px 20px;text-align:center;box-shadow:0 10px 28px rgba(20,90,92,.10);position:relative;overflow:hidden}.pageTitle:after{content:'';position:absolute;left:0;right:0;bottom:0;height:6px;background:linear-gradient(90deg,var(--tealDark),var(--red),var(--orange))}
+h1{font-size:1.72rem;line-height:1.1;letter-spacing:-.05em;color:var(--ink);font-weight:900;margin-bottom:7px}.subtitle{font-size:.82rem;color:var(--sub);font-weight:800}.subtitle b{color:var(--tealDark)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px;margin:0 auto 14px;max-width:620px;box-shadow:0 6px 20px rgba(20,80,80,.07)}
+.card h2{font-size:1rem;letter-spacing:-.03em;color:var(--ink);font-weight:900;border-left:8px solid var(--red);background:#fff;padding:5px 0 6px 10px;margin-bottom:13px;border-radius:0}.card h2:after{content:'';display:block;width:44px;height:3px;background:var(--teal);margin-top:7px;border-radius:99px}
+label{display:flex;justify-content:space-between;font-size:.84rem;color:#30363a;margin:10px 0 4px;font-weight:900}label span{color:var(--red);font-weight:900}
+input[type=range]{width:100%;margin-bottom:9px;accent-color:var(--tealDark)}select,input{width:100%;background:#fff;color:var(--ink);border:1.5px solid #b9d2d2;border-radius:8px;padding:9px;font-weight:800}select:focus,input:focus{outline:2px solid var(--teal);border-color:var(--tealDark)}
+.row{display:flex;gap:8px;margin-top:8px}button{flex:1;padding:11px 8px;border:0;border-radius:9px;font-weight:900;color:#fff;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.16);letter-spacing:-.02em}button:active{transform:translateY(1px);box-shadow:0 2px 0 rgba(0,0,0,.18)}
+.b1{background:linear-gradient(135deg,var(--tealDark),var(--blue))}.b2{background:linear-gradient(135deg,var(--green),#35d58a)}.b3{background:linear-gradient(135deg,var(--orange),#ff6b35)}.b4{background:linear-gradient(135deg,var(--red),#d9283f)}.b5{background:linear-gradient(135deg,var(--navy),var(--violet))}.b6{background:linear-gradient(135deg,var(--slate),#93a1ad)}
+#st,#statbox{max-width:620px;margin:0 auto 12px;background:var(--navy);color:#f2ffff;border:3px solid var(--teal);border-radius:8px;padding:12px;min-height:44px;font-size:.84rem;white-space:pre-wrap;font-family:monospace}#statbox{display:none;color:#e5e7eb;font-size:.76rem}
+.localbox{background:#f1f8f8;color:#1d292d;border:1.5px solid #c8dddd;border-left:6px solid var(--teal);border-radius:8px;padding:11px;min-height:40px;font-family:monospace;font-size:.77rem;white-space:pre-wrap;margin-top:9px}.localbox.empty{color:#879397;background:#f8fbfb;border-left-color:#b8cccc}
+.small{font-size:.76rem;color:#5b666b;line-height:1.45;margin-top:9px}.jointBox{border:1.5px solid #d5e7e7;border-radius:9px;padding:11px;margin-bottom:10px;background:var(--soft)}.result{font-size:.79rem;color:#c01021;font-weight:900;margin-top:5px;white-space:pre-wrap}.info{font-size:.75rem;color:#69757b;line-height:1.4}.checkrow{display:flex;align-items:center;gap:8px;margin:9px 0;color:#30363a;font-size:.85rem;font-weight:900}.checkrow input{width:auto;accent-color:var(--red)}
+@media(max-width:520px){body{padding:12px}.pageTitle{padding:18px 14px;border-width:8px}.row{gap:6px}button{font-size:.8rem;padding:10px 5px}h1{font-size:1.42rem}.card{padding:14px}}
 </style>
 </head>
 <body>
-<h1>MJYeom Robot Arm</h1>
+<div class="pageTitle"><h1>MJYeom Robot Arm</h1><div class="subtitle"><b>AP Web Control</b> · RobotArm Wi‑Fi · http://192.168.4.1</div></div>
 
 <div class="card">
 <h2>00 Neutral / Home</h2>
@@ -1308,4 +1298,5 @@ while True:
     finally:
         if conn:
             conn.close()
+
 
